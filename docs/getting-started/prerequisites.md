@@ -45,16 +45,19 @@ docker images periodically.
 Install make for your linux distribution. E.g. for Ubuntu:
 
 ```bash
-sudo apt-get install build-essential
+sudo apt-get install build-essential python3-apt  
 ```
+
 
 ### Python programming language
 
 [Download Python 3.7](https://www.python.org/downloads/release/python-376/),
-then install it.
+then install it.Or you can reference dockerfile steps to install python in fuzzbench/docker/base-image/
 
 If you already have Python installed, you can verify its version by running
 `python3 --version`. The minimum required version is 3.7.
+
+
 
 ### Python package dependencies
 

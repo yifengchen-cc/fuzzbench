@@ -123,15 +123,6 @@ build-$(1)-$(2): .$(1)-$(2)-runner
 pull-$(1)-$(2): .pull-$(1)-$(2)-runner
 
 run-$(1)-$(2): .$(1)-$(2)-runner
-	docker run \
-    --cap-add SYS_NICE \
-    --cap-add SYS_PTRACE \
-    -e FUZZ_OUTSIDE_EXPERIMENT=1 \
-    -e TRIAL_ID=1 \
-    -e FUZZER=$(1) \
-    -e BENCHMARK=$(2) \
-    -it \
-    $(BASE_TAG)/runners/$(1)/$(2)
 
 debug-$(1)-$(2): .$(1)-$(2)-runner
 	docker run \

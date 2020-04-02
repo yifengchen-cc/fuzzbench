@@ -13,9 +13,9 @@
 # limitations under the License.
 
 # Using multi-stage build to copy clang.
-FROM gcr.io/oss-fuzz-base/base-clang AS base-clang
+FROM gcr.azk8s.cn/oss-fuzz-base/base-clang AS base-clang
 
-FROM gcr.io/fuzzbench/base-image
+FROM gcr.azk8s.cn/fuzzbench/base-image
 
 RUN apt-get update -y && apt-get install -y \
     autoconf-archive \
