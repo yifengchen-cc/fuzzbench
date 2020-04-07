@@ -30,7 +30,7 @@ from common import environment
 from common import experiment_utils
 from common import filesystem
 from common import fuzzer_utils
-from common import gsutil
+#from common import gsutil
 from common import logs
 from common import new_process
 from common import retry
@@ -218,15 +218,10 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
         benchmark_fuzzer_directory = '%s-%s' % (environment.get(
             'BENCHMARK'), environment.get('FUZZER_VARIANT_NAME'))
         if not environment.get('FUZZ_OUTSIDE_EXPERIMENT'):
-            bucket = environment.get('CLOUD_EXPERIMENT_BUCKET')
             experiment_name = environment.get('EXPERIMENT')
             trial = 'trial-%d' % environment.get('TRIAL_ID')
-            self.gcs_sync_dir = posixpath.join(bucket, experiment_name,
-                                               'experiment-folders',
-                                               benchmark_fuzzer_directory,
-                                               trial)
-            # Clean the directory before we use it.
-            gsutil.rm(self.gcs_sync_dir, force=True)
+            
+            self.gcs_sync_dir = '/tmp/result'
         else:
             self.gcs_sync_dir = None
 
@@ -248,7 +243,8 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
         ]
 
         for directory in directories:
-            filesystem.recreate_directory(directory)
+            if not filesystem.directory_exist(directory):
+                filesystem.recreate_directory(directory)
 
     def conduct_trial(self):
         """Conduct the benchmarking trial."""
@@ -370,10 +366,11 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
             return
 
         basename = os.path.basename(archive)
-        gcs_path = posixpath.join(self.gcs_sync_dir, self.corpus_dir, basename)
+        #gcs_path = posixpath.join(self.gcs_sync_dir, self.corpus_dir, basename)
 
         # Don't use parallel to avoid stability issues.
-        gsutil.cp(archive, gcs_path, parallel=False)
+        #gsutil.cp(archive, gcs_path, parallel=False)
+        gcs_path = posixpath.join(self.gcs_sync_dir, basename)
 
         # Delete corpus archive so disk doesn't fill up.
         os.remove(archive)
@@ -388,8 +385,9 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
     @retry.wrap(NUM_RETRIES, RETRY_DELAY,
                 'experiment.runner.TrialRunner.save_results')
     def save_results(self):
+        pass
         """Save the results directory to GCS."""
-        if not self.gcs_sync_dir:
+        '''if not self.gcs_sync_dir:
             return
         # Copy results directory before rsyncing it so that we don't get an
         # exception from uploading a file that changes in size. Files can change
@@ -401,7 +399,7 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
         # (crbug.com/1053309).
         gsutil.rsync(results_copy,
                      posixpath.join(self.gcs_sync_dir, self.results_dir),
-                     parallel=False)
+                     parallel=False)'''
 
 
 def archive_directories(directories, archive_path):

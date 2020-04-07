@@ -1,0 +1,1 @@
+docker run -v /root/fuzz/result/afl-curl-0/:/out/corpus --cap-add SYS_NICE --cap-add SYS_PTRACE -e TRIAL_ID=0  -e MAX_TOTAL_TIME=60 -e FUZZER=afl -e BENCHMARK=curl_curl_fuzzer_http -e FUZZ_TARGET=curl_fuzzer_http -it gcr.io/fuzzbench/oss-fuzz/runners/afl/curl >& /tmp/runner.txt &
