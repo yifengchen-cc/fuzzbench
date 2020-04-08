@@ -98,7 +98,7 @@ class CollectData:
         timer[self.trail_id].start()
         time.sleep(MAX_TOTAL_TIME)
         timer[self.trail_id].cancel()
-        print("cancel")
+        print("timer {timer} canceled ".format(timer=self.trail_id))
     
 def ini_trail_loop(experiment,fuzzer,benchmark,corpus_data_path,trial_id):
 
