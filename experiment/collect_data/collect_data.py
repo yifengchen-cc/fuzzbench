@@ -5,16 +5,21 @@ import os
 import csv
 import posixpath
 import fcntl
+import subprocess
+import shlex
 
 #from common import filesystem
 import filesystem
 
 timer=[None for i in range(10)]
 TRAIL_NUM=2
+MAX_TOTAL_TIME=0
+FETCH_DATA_TIME=3
 #export COLLECT_DATA_ROOT=/root/fuzz/result
 collect_data_root = os.environ.get('COLLECT_DATA_ROOT')
 start_time=0
 row_num=0
+
 
 class CollectData:
     def __init__(self,trail_id,experiment,fuzzer,benchmark):
@@ -81,37 +86,72 @@ class CollectData:
             line_list = line.decode('utf-8').split(',')
             path_total = int(line_list[3])
             cur_time = int(line_list[0])
-            print(path_total,cur_time)
+            #print(path_total,cur_time)
             self.write_data_file(path_total,cur_time)
         global timer
-        timer[self.trail_id] = Timer(3,self.get_path_total,(filename,))
+        timer[self.trail_id] = Timer(FETCH_DATA_TIME,self.get_path_total,(filename,))
         timer[self.trail_id].start()
     
     def loop_fetch(self,filename):
         global timer
-        timer[self.trail_id] = Timer(3,self.get_path_total,(filename,))
+        timer[self.trail_id] = Timer(FETCH_DATA_TIME,self.get_path_total,(filename,))
         timer[self.trail_id].start()
-        time.sleep(180)
+        time.sleep(MAX_TOTAL_TIME)
         timer[self.trail_id].cancel()
         print("cancel")
     
-def ini_trail_loop(experiment,fuzzer,benchmark):
+def ini_trail_loop(experiment,fuzzer,benchmark,corpus_data_path,trial_id):
 
-    global start_time
+    coldat = CollectData(trial_id,experiment,fuzzer,benchmark)
+    filename = 'plot_data'
+    file_path = posixpath.join(corpus_data_path,filename)
+    print(file_path)
+    try:
+        _thread.start_new_thread(coldat.loop_fetch,(file_path,))
+    except:
+        print("create thread error!")
+
+def start_docker(corpus_data_path,fuzzer,benchmark,fuzz_target,docker_url,trail_id):
+
+    """
+    docker run -v /root/fuzz/result/afl-curl-0/:/out/corpus \
+            --cap-add SYS_NICE --cap-add SYS_PTRACE \
+            -e TRIAL_ID=0  -e MAX_TOTAL_TIME=60 \
+            -e FUZZER=afl -e BENCHMARK=curl_curl_fuzzer_http \
+            -e FUZZ_TARGET=curl_fuzzer_http \
+            -it gcr.io/fuzzbench/oss-fuzz/runners/afl/curl >& /tmp/runner.txt &
+    """
+
+    start_script = '''docker run -v {corpus_data_path}:/out/corpus --cap-add SYS_NICE --cap-add SYS_PTRACE -e TRIAL_ID={trail_num} -e MAX_TOTAL_TIME={max_total_time} -e FUZZER={fuzzer} -e BENCHMARK={benchmark} -e FUZZ_TARGET={fuzz_target} -it {docker_url} >& /tmp/runner.txt &'''.format(
+                    corpus_data_path = corpus_data_path,
+                    trail_num = str(trail_id),
+                    max_total_time = str(MAX_TOTAL_TIME),
+                    fuzzer = fuzzer,
+                    benchmark = benchmark,
+                    fuzz_target = fuzz_target,
+                    docker_url = docker_url)
+    #print(shlex.split(start_script))
+    process = subprocess.Popen(shlex.split(start_script))
+
+
+
+def init_trail(experiment,fuzzer,benchmark,fuzz_target,max_total_time,trail_num,docker_url):
+    global MAX_TOTAL_TIME,FETCH_DATA_TIME,TRAIL_NUM,start_time
+    MAX_TOTAL_TIME = max_total_time
+    TRAIL_NUM = trail_num
+    FETCH_DATA_TIME = int(MAX_TOTAL_TIME / 100) # fetch 100 time data
+
+    
     start_time=int(time.time())
     for i in range(TRAIL_NUM):
-        coldat = CollectData(i,experiment,fuzzer,benchmark)
         data_folder = '-'.join([fuzzer,benchmark,str(i)])
-        filename = 'plot_data'
-        file_path = posixpath.join(collect_data_root,data_folder,filename)
-        print(file_path)
-        try:
-            _thread.start_new_thread(coldat.loop_fetch,(file_path,))
-        except:
-            print("create thread error!")
+        corpus_data_path = posixpath.join(collect_data_root,data_folder)
+        start_docker(corpus_data_path,fuzzer,benchmark,fuzz_target,docker_url,i)
+        time.sleep(3)
+        ini_trail_loop(experiment,fuzzer,benchmark,corpus_data_path,i)
 
 def main():
-    ini_trail_loop('project-0','afl','curl')
+    init_trail('project-0','afl','curl_curl_fuzzer_http','curl_fuzzer_http',360,2,'gcr.io/fuzzbench/oss-fuzz/runners/afl/curl')
     while 1:
         pass
     return 0
