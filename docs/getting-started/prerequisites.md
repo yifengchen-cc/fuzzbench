@@ -45,7 +45,7 @@ docker images periodically.
 Install make for your linux distribution. E.g. for Ubuntu:
 
 ```bash
-sudo apt-get install build-essential python3-apt  
+sudo apt-get install build-essential python3-apt libbz2-dev 
 ```
 
 
