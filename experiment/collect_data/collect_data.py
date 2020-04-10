@@ -1,4 +1,5 @@
 from threading import Timer
+from multiprocessing import Process
 import _thread
 import time
 import os
@@ -7,9 +8,13 @@ import posixpath
 import fcntl
 import subprocess
 import shlex
+import random
 
 #from common import filesystem
 import filesystem
+
+random.seed(int(time.time()))
+#TRAIL_ID_OFF = random.randrange(10000,99999)+random.randint(-100,100)
 
 timer=[None for i in range(10)]
 TRAIL_NUM=2
@@ -17,9 +22,36 @@ MAX_TOTAL_TIME=0
 FETCH_DATA_TIME=3
 #export COLLECT_DATA_ROOT=/root/fuzz/result
 collect_data_root = os.environ.get('COLLECT_DATA_ROOT')
+data_file = posixpath.join(collect_data_root,'data.csv')
 start_time=0
 row_num=0
 
+def get_last_line(filename):
+    """
+    get last line of a file
+    :param filename: file name
+    :return: last line or None for empty file
+    """
+    try:
+        filesize = os.path.getsize(filename)
+        if filesize == 0:
+            return None
+        else:
+            with open(filename, 'rb') as fp: # to use seek from end, must use mode 'rb'
+                offset = -8                 # initialize offset
+                while -offset < filesize:   # offset cannot exceed file size
+                    fp.seek(offset, 2)      # read # offset chars from eof(represent by number '2')
+                    lines = fp.readlines()  # read from fp to eof
+                    if len(lines) >= 2:     # if contains at least 2 lines
+                        return lines[-1]    # then last line is totally included
+                    else:
+                        offset *= 2         # enlarge offset
+                fp.seek(0)
+                lines = fp.readlines()
+                return lines[-1]
+    except FileNotFoundError:
+        print(filename + ' not found!')
+        return None
 
 class CollectData:
     def __init__(self,trail_id,experiment,fuzzer,benchmark):
@@ -29,58 +61,29 @@ class CollectData:
         self.trail_id=trail_id
 
     def write_data_file(self,path_total,cur_time):
-        global start_time,row_num
-        data_file = posixpath.join(collect_data_root,'data.csv')
-        if filesystem.file_exist(data_file): 
+        global start_time,row_num,data_file,TRAIL_ID_OFF
+        trail_id = self.trail_id+TRAIL_ID_OFF
+        if filesystem.file_exist(data_file):
             with open(data_file,'a') as f:
                 fcntl.flock(f.fileno(),fcntl.LOCK_EX)
-                row=[row_num,int(cur_time-start_time),self.trail_id,path_total,self.trail_id,self.fuzzer,self.experiment,self.benchmark,0,0]
+                row=[row_num,int(cur_time-start_time),trail_id,path_total,trail_id,self.fuzzer,self.experiment,self.benchmark,0,0]
                 f_csv = csv.writer(f)
                 f_csv.writerow(row)
                 row_num+=1
                 fcntl.flock(f.fileno(),fcntl.LOCK_UN)
         else:
             with open(data_file,'x') as f:
-                headers=[' ','time','trial_id','edges_cov','id','fuzzer','experiment','benchmark','time_started','time_ended']
+                headers=[' ','time','trial_id','edges_covered','id','fuzzer','experiment','benchmark','time_started','time_ended']
                 fcntl.flock(f.fileno(),fcntl.LOCK_EX)
-                row=[row_num,int(cur_time-start_time),self.trail_id,path_total,self.trail_id,self.fuzzer,self.experiment,self.benchmark,0,0]
+                row=[row_num,int(cur_time-start_time),trail_id,path_total,trail_id,self.fuzzer,self.experiment,self.benchmark,0,0]
                 f_csv = csv.writer(f)
                 f_csv.writerow(headers)
                 f_csv.writerow(row)
                 row_num+=1
                 fcntl.flock(f.fileno(),fcntl.LOCK_UN)
-
-            
-
-    def get_last_line(self,filename):
-        """
-        get last line of a file
-        :param filename: file name
-        :return: last line or None for empty file
-        """
-        try:
-            filesize = os.path.getsize(filename)
-            if filesize == 0:
-                return None
-            else:
-                with open(filename, 'rb') as fp: # to use seek from end, must use mode 'rb'
-                    offset = -8                 # initialize offset
-                    while -offset < filesize:   # offset cannot exceed file size
-                        fp.seek(offset, 2)      # read # offset chars from eof(represent by number '2')
-                        lines = fp.readlines()  # read from fp to eof
-                        if len(lines) >= 2:     # if contains at least 2 lines
-                            return lines[-1]    # then last line is totally included
-                        else:
-                            offset *= 2         # enlarge offset
-                    fp.seek(0)
-                    lines = fp.readlines()
-                    return lines[-1]
-        except FileNotFoundError:
-            print(filename + ' not found!')
-            return None
     
     def get_path_total(self,filename):
-        line = self.get_last_line(filename)
+        line = get_last_line(filename)
         path_total=-1
         if line:
             line_list = line.decode('utf-8').split(',')
@@ -100,6 +103,7 @@ class CollectData:
         timer[self.trail_id].cancel()
         print("timer {timer} canceled ".format(timer=self.trail_id))
     
+
 def ini_trail_loop(experiment,fuzzer,benchmark,corpus_data_path,trial_id):
 
     coldat = CollectData(trial_id,experiment,fuzzer,benchmark)
@@ -136,13 +140,18 @@ def start_docker(corpus_data_path,fuzzer,benchmark,fuzz_target,docker_url,trail_
 
 
 def init_trail(experiment,fuzzer,benchmark,fuzz_target,max_total_time,trail_num,docker_url):
-    global MAX_TOTAL_TIME,FETCH_DATA_TIME,TRAIL_NUM,start_time
+    global MAX_TOTAL_TIME,FETCH_DATA_TIME,TRAIL_NUM,TRAIL_ID_OFF,start_time,row_num
     MAX_TOTAL_TIME = max_total_time
     TRAIL_NUM = trail_num
     FETCH_DATA_TIME = int(MAX_TOTAL_TIME / 100) # fetch 100 time data
 
     
+    if filesystem.file_exist(data_file):
+        row_num = int(get_last_line(data_file).decode('utf-8').split(',')[0])
+        print(row_num)
+        row_num += 1
     start_time=int(time.time())
+    TRAIL_ID_OFF = random.randrange(10000,99999)+random.randint(-100,100)
     for i in range(TRAIL_NUM):
         data_folder = '-'.join([fuzzer,benchmark,str(i)])
         corpus_data_path = posixpath.join(collect_data_root,data_folder)
@@ -151,7 +160,22 @@ def init_trail(experiment,fuzzer,benchmark,fuzz_target,max_total_time,trail_num,
         ini_trail_loop(experiment,fuzzer,benchmark,corpus_data_path,i)
 
 def main():
-    init_trail('project-0','afl','curl_curl_fuzzer_http','curl_fuzzer_http',360,2,'gcr.io/fuzzbench/oss-fuzz/runners/afl/curl')
+    fuzzer_list=['afl','aflplusplus']
+    benchmark_list=['libpng-1.2.56','libjpeg-turbo-07-2017']
+    fuzzer=fuzzer_list[1]
+    benchmark=benchmark_list[1]
+    docker_url=posixpath.join('gcr.io/fuzzbench/runners/',fuzzer,benchmark)
+    '''
+    for fuzzer in fuzzer_list:
+        for benchmark in benchmark_list:
+            try:
+                docker_url=posixpath.join('gcr.io/fuzzbench/runners/',fuzzer,benchmark)
+                Process(target=init_trail,args=('project-0',fuzzer,benchmark,'',360,2,docker_url)).start()
+                time.sleep(3)
+            except:
+                print('create init_trail error!')
+    '''
+    init_trail('project-0',fuzzer,benchmark,'',360,2,docker_url)
     while 1:
         pass
     return 0
