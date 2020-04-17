@@ -24,7 +24,8 @@
 
 # Start from $fuzzer's builder image.
 ARG fuzzer
-FROM gcr.azk8s.cn/fuzzbench/builders/$fuzzer
+FROM gcr.io/fuzzbench/builders/$fuzzer
+#FROM gcr.azk8s.cn/fuzzbench/builders/$fuzzer
 
 # An ARG declared before a FROM is outside of a build stage scope, so we need to
 # re-declare it here.
