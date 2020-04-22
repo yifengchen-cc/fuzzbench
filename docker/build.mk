@@ -17,6 +17,7 @@ BENCHMARKS := $(notdir $(shell find benchmarks -type f -name build.sh | xargs di
 OSS_FUZZ_PROJECTS := $(notdir $(shell find benchmarks -type f -name oss-fuzz.yaml | xargs dirname))
 
 BASE_TAG := gcr.io/fuzzbench
+#OSS_BASE_TAG := gcr.azk8s.cn/fuzzbench
 
 
 build-all: $(addsuffix -all, $(addprefix build-,$(FUZZERS)))
@@ -35,6 +36,8 @@ pull-base-image:
 base-builder: base-image
 	docker build \
     --tag $(BASE_TAG)/base-builder \
+    --build-arg HTTP_PROXY=http://192.168.255.51:3128 \
+    --build-arg HTTPS_PROXY=http://192.168.255.51:3128 \
     --cache-from $(BASE_TAG)/base-builder \
     --cache-from gcr.io/oss-fuzz-base/base-clang \
     docker/base-builder
@@ -144,7 +147,6 @@ $(foreach fuzzer,$(FUZZERS), \
   $(foreach benchmark,$(BENCHMARKS), \
     $(eval $(call fuzzer_benchmark_template,$(fuzzer),$(benchmark)))))
 
-
 define oss_fuzz_project_template
 $(1)-project-name := $(shell cat benchmarks/$(1)/oss-fuzz.yaml | \
                              grep project | cut -d ':' -f2 | tr -d ' ')
@@ -165,8 +167,11 @@ define fuzzer_oss_fuzz_project_template
 	docker build \
     --tag $(BASE_TAG)/oss-fuzz/builders/$(1)/$($(2)-project-name)-intermediate \
     --file=fuzzers/$(1)/builder.Dockerfile \
-    --build-arg parent_image=gcr.io/fuzzbench/oss-fuzz/$($(2)-project-name)@sha256:$($(2)-oss-fuzz-builder-hash) \
+    --build-arg parent_image=$(BASE_TAG)/oss-fuzz/$($(2)-project-name)@sha256:$($(2)-oss-fuzz-builder-hash) \
+    --build-arg HTTP_PROXY=http://192.168.255.51:3128 \
+    --build-arg HTTPS_PROXY=http://192.168.255.51:3128 \
     --cache-from $(BASE_TAG)/oss-fuzz/builders/$(1)/$($(2)-project-name)-intermediate \
+    --cache-from $(BASE_TAG)/base-builder \
     fuzzers/$(1)
 
 .pull-$(1)-$(2)-oss-fuzz-builder-intermediate:

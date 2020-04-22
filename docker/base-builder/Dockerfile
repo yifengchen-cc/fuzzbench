@@ -13,10 +13,13 @@
 # limitations under the License.
 
 # Using multi-stage build to copy clang.
-FROM gcr.azk8s.cn/oss-fuzz-base/base-clang AS base-clang
+FROM gcr.io/oss-fuzz-base/base-clang AS base-clang
+#FROM gcr.azk8s.cn/oss-fuzz-base/base-clang AS base-clang
 
 #FROM gcr.azk8s.cn/fuzzbench/base-image
 FROM gcr.io/fuzzbench/base-image
+
+RUN  sed -i s@/security.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list
 
 RUN apt-get update -y && apt-get install -y \
     autoconf-archive \
