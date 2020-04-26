@@ -22,7 +22,7 @@ MAX_TOTAL_TIME=0
 FETCH_DATA_TIME=3
 #export COLLECT_DATA_ROOT=/root/fuzz/result
 collect_data_root = os.environ.get('COLLECT_DATA_ROOT')
-data_file = posixpath.join(collect_data_root,'data.csv')
+data_file = posixpath.join(collect_data_root,'csv','data.csv')
 start_time=0
 row_num=0
 
@@ -61,12 +61,16 @@ class CollectData:
         self.trail_id=trail_id
 
     def write_data_file(self,path_total,cur_time):
-        global start_time,row_num,data_file,TRAIL_ID_OFF
+        global start_time,row_num,data_file,TRAIL_ID_OFF,MAX_TOTAL_TIME
         trail_id = self.trail_id+TRAIL_ID_OFF
+        time = int(cur_time-start_time)
+        if MAX_TOTAL_TIME - time < 1000:
+            time=MAX_TOTAL_TIME
+
         if filesystem.file_exist(data_file):
             with open(data_file,'a') as f:
                 fcntl.flock(f.fileno(),fcntl.LOCK_EX)
-                row=[row_num,int(cur_time-start_time),trail_id,path_total,trail_id,self.fuzzer,self.experiment,self.benchmark,0,0]
+                row=[row_num,time,trail_id,path_total,trail_id,self.fuzzer,self.experiment,self.benchmark,0,0]
                 f_csv = csv.writer(f)
                 f_csv.writerow(row)
                 row_num+=1
@@ -75,7 +79,7 @@ class CollectData:
             with open(data_file,'x') as f:
                 headers=[' ','time','trial_id','edges_covered','id','fuzzer','experiment','benchmark','time_started','time_ended']
                 fcntl.flock(f.fileno(),fcntl.LOCK_EX)
-                row=[row_num,int(cur_time-start_time),trail_id,path_total,trail_id,self.fuzzer,self.experiment,self.benchmark,0,0]
+                row=[row_num,time,trail_id,path_total,trail_id,self.fuzzer,self.experiment,self.benchmark,0,0]
                 f_csv = csv.writer(f)
                 f_csv.writerow(headers)
                 f_csv.writerow(row)
@@ -126,7 +130,7 @@ def start_docker(corpus_data_path,fuzzer,benchmark,fuzz_target,docker_url,trail_
             -it gcr.io/fuzzbench/oss-fuzz/runners/afl/curl >& /tmp/runner.txt &
     """
 
-    start_script = '''docker run -v {corpus_data_path}:/out/corpus --cap-add SYS_NICE --cap-add SYS_PTRACE -e TRIAL_ID={trail_num} -e MAX_TOTAL_TIME={max_total_time} -e FUZZER={fuzzer} -e BENCHMARK={benchmark} -e FUZZ_TARGET={fuzz_target} -it {docker_url} >& /tmp/runner.txt &'''.format(
+    start_script = '''docker run -v {corpus_data_path}:/out/corpus --cap-add SYS_NICE --cap-add SYS_PTRACE -e TRIAL_ID={trail_num} -e MAX_TOTAL_TIME={max_total_time} -e FUZZER={fuzzer} -e BENCHMARK={benchmark} -e FUZZ_TARGET={fuzz_target} -i {docker_url} >& /tmp/runner.txt &'''.format(
                     corpus_data_path = corpus_data_path,
                     trail_num = str(trail_id),
                     max_total_time = str(MAX_TOTAL_TIME),
@@ -146,10 +150,11 @@ def init_trail(experiment,fuzzer,benchmark,fuzz_target,max_total_time,trail_num,
     FETCH_DATA_TIME = int(MAX_TOTAL_TIME / 100) # fetch 100 time data
 
     
-    if filesystem.file_exist(data_file):
+    '''if filesystem.file_exist(data_file):
         row_num = int(get_last_line(data_file).decode('utf-8').split(',')[0])
         print(row_num)
         row_num += 1
+    '''
     start_time=int(time.time())
     TRAIL_ID_OFF = random.randrange(10000,99999)+random.randint(-100,100)
     for i in range(TRAIL_NUM):
@@ -160,11 +165,22 @@ def init_trail(experiment,fuzzer,benchmark,fuzz_target,max_total_time,trail_num,
         ini_trail_loop(experiment,fuzzer,benchmark,corpus_data_path,i)
 
 def main():
-    fuzzer_list=['afl','aflplusplus']
-    benchmark_list=['libpng-1.2.56','libjpeg-turbo-07-2017']
-    fuzzer=fuzzer_list[1]
+    global data_file
+    fuzzer_list=['aflsmart','aflplusplus_mopt','aflplusplussmart']
+    benchmark_list=['libpng-1.2.56','libpcap']
+    fuzzer=fuzzer_list[2]
     benchmark=benchmark_list[1]
-    docker_url=posixpath.join('gcr.io/fuzzbench/runners/',fuzzer,benchmark)
+    fuzz_target='fuzz_both'
+    #fuzz_target=''
+    max_time=60*60*24
+    max_trail=5
+        
+    data_file = posixpath.join(collect_data_root,'csv',fuzzer+'-'+benchmark+'.csv')
+    if fuzz_target is '': 
+        docker_url=posixpath.join('gcr.io/fuzzbench/runners/',fuzzer,benchmark)
+    else:
+        docker_url=posixpath.join('gcr.io/fuzzbench/oss-fuzz/runners/',fuzzer,benchmark)
+        
     '''
     for fuzzer in fuzzer_list:
         for benchmark in benchmark_list:
@@ -175,7 +191,7 @@ def main():
             except:
                 print('create init_trail error!')
     '''
-    init_trail('project-0',fuzzer,benchmark,'',360,2,docker_url)
+    init_trail('project-0',fuzzer,benchmark,fuzz_target,max_time,max_trail,docker_url)
     while 1:
         pass
     return 0
