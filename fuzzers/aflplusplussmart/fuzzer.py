@@ -51,8 +51,7 @@ def fuzz(input_corpus, output_corpus, target_binary):
     if benchmark_name == 'libjpeg-turbo-07-2017':
         input_model = 'jpeg.xml'
 
-    flags = ['-L0']  # afl++ MOpt activation at once.
-    flags += ['-pmmopt']  # rare branch scheduling.
+    flags = ['-pmmopt']  # rare branch scheduling.
     flags += ['-s123']  # fixed random seed.
     flags += ['-h'] # Enable stacked mutations
     flags += ['-w','peach'] # Enable structure-aware fuzzing
