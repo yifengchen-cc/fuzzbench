@@ -20,7 +20,13 @@ def merge_all():
 
 
 def manual_merge(file_list):
-    for i in range(0,len(file_list)):
+    idx=0
+    if not os.path.exists("data.csv"):
+        df = pd.read_csv(posixpath.join(data_path,file_list[0]))
+        new_f = df[keep_col]
+        new_f.to_csv("data.csv",index=False)
+        idx=1
+    for i in range(idx,len(file_list)):
         df = pd.read_csv(posixpath.join(data_path,file_list[i]))
         new_f = df[keep_col]
         new_f.to_csv("data.csv",index=False,header=False,mode='a+')
