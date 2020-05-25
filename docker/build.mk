@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FUZZERS    := $(notdir $(shell find fuzzers -mindepth 1 -maxdepth 1 -type d | grep -v coverage))
+FUZZERS    := $(notdir $(shell find fuzzers -mindepth 1 -maxdepth 1 -type d ))
 BENCHMARKS := $(notdir $(shell find benchmarks -type f -name build.sh | xargs dirname))
 OSS_FUZZ_PROJECTS := $(notdir $(shell find benchmarks -type f -name oss-fuzz.yaml | xargs dirname))
 
@@ -126,6 +126,15 @@ build-$(1)-$(2): .$(1)-$(2)-runner
 pull-$(1)-$(2): .pull-$(1)-$(2)-runner
 
 run-$(1)-$(2): .$(1)-$(2)-runner
+	docker run -v /mnt/disk/fuzzbench_proj/test:/out/corpus\
+    --cap-add SYS_NICE \
+    --cap-add SYS_PTRACE \
+    -e FUZZ_OUTSIDE_EXPERIMENT=1 \
+    -e TRIAL_ID=1 \
+    -e FUZZER=$(1) \
+    -e BENCHMARK=$(2) \
+    -it \
+    $(BASE_TAG)/runners/$(1)/$(2)
 
 debug-$(1)-$(2): .$(1)-$(2)-runner
 	docker run \
