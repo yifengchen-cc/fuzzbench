@@ -42,6 +42,8 @@ pull-base-image:
 base-builder: base-image
 	docker build \
     --tag $(BASE_TAG)/base-builder \
+    --build-arg HTTP_PROXY=http://192.168.255.51:3128 \
+    --build-arg HTTPS_PROXY=http://192.168.255.51:3128 \
     $(call cache_from_base,${BASE_TAG}/base-builder) \
     $(call cache_from_base,gcr.io/oss-fuzz-base/base-clang) \
     docker/base-builder
@@ -156,7 +158,6 @@ test-run-$(1)-$(2): .$(1)-$(2)-runner
 
 debug-$(1)-$(2): .$(1)-$(2)-runner
 	docker run \
-    --cpus=1 \
     --cap-add SYS_NICE \
     --cap-add SYS_PTRACE \
     -e FUZZ_OUTSIDE_EXPERIMENT=1 \
@@ -204,6 +205,8 @@ define fuzzer_oss_fuzz_benchmark_template
     --tag $(BASE_TAG)/builders/$(1)/$(2)-intermediate \
     --file=fuzzers/$(1)/builder.Dockerfile \
     --build-arg parent_image=gcr.io/fuzzbench/oss-fuzz/$($(2)-project-name)@sha256:$($(2)-oss-fuzz-builder-hash) \
+    --build-arg HTTP_PROXY=http://192.168.255.51:3128 \
+    --build-arg HTTPS_PROXY=http://192.168.255.51:3128 \
     $(call cache_from,${BASE_TAG}/builders/$(1)/$(2)-intermediate) \
     fuzzers/$(1)
 
@@ -253,7 +256,6 @@ pull-$(1)-$(2): .pull-$(1)-$(2)-oss-fuzz-runner
 
 run-$(1)-$(2): .$(1)-$(2)-oss-fuzz-runner
 	docker run \
-    --cpus=1 \
     --cap-add SYS_NICE \
     --cap-add SYS_PTRACE \
     -e FUZZ_OUTSIDE_EXPERIMENT=1 \
@@ -278,7 +280,6 @@ test-run-$(1)-$(2): .$(1)-$(2)-oss-fuzz-runner
 
 debug-$(1)-$(2): .$(1)-$(2)-oss-fuzz-runner
 	docker run \
-    --cpus=1 \
     --cap-add SYS_NICE \
     --cap-add SYS_PTRACE \
     -e FUZZ_OUTSIDE_EXPERIMENT=1 \

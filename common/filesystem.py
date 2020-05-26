@@ -16,6 +16,18 @@ import os
 from pathlib import Path
 import shutil
 
+def file_exist(file_path):
+    if os.path.isfile(file_path) and os.path.exists(file_path):
+        return True
+    else:
+        return False
+
+
+def directory_exist(directory):
+    if os.path.exists(directory):
+        return True
+    else: 
+        return False
 
 def create_directory(directory):
     """Creates |directory|, including parent directories, if does not exist

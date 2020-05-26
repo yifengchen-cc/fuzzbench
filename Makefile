@@ -20,7 +20,7 @@ VENV_ACTIVATE := .venv/bin/activate
 ${VENV_ACTIVATE}: requirements.txt
 	rm -rf .venv
 	python3 -m venv .venv
-	source ${VENV_ACTIVATE} && python3 -m pip install -r requirements.txt
+	source ${VENV_ACTIVATE} && python3 -m pip --default-timeout=100 install -i https://pypi.tuna.tsinghua.edu.cn/simple  -r requirements.txt
 
 install-dependencies: ${VENV_ACTIVATE}
 

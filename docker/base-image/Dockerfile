@@ -17,6 +17,8 @@ FROM ubuntu:xenial
 # Build Python 3.7.6 from source because pandas doesn't support xenial's
 # Python3 version (3.5.2).
 ENV PYTHON_VERSION 3.7.6
+RUN  sed -i s@/archive.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list && \
+     sed -i s@/security.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list
 RUN apt-get update -y && apt-get install -y \
     build-essential \
     curl \
@@ -44,10 +46,3 @@ RUN cd /tmp/ && \
 RUN apt-get update -y && apt-get install -y \
     apt-transport-https \
     lsb-release
-RUN CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)" && \
-    echo "deb https://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" \
-    | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg \
-    | apt-key add - && \
-    apt-get update -y && \
-    apt-get install -y google-cloud-sdk
