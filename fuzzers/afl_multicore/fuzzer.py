@@ -18,7 +18,7 @@ import subprocess
 import os
 
 from fuzzers import utils
-
+from multiprocessing import Pool
 # OUT environment variable is the location of build directory (default is /out).
 
 
@@ -63,6 +63,10 @@ def prepare_fuzz_environment(input_corpus):
                   'w') as file_handle:
             file_handle.write('hi')
 
+def fuzz_func(command):
+    global output_stream
+    print('[run_fuzzer] Running command: ' + ' '.join(command))
+    subprocess.call(command, stdout=output_stream, stderr=output_stream)
 
 def run_afl_fuzz(input_corpus,
                  output_corpus,
@@ -74,7 +78,7 @@ def run_afl_fuzz(input_corpus,
     # FIXME: Currently AFL will exit if it encounters a crashing input in seed
     # corpus (usually timeouts). Add a way to skip/delete such inputs and
     # re-run AFL. This currently happens with a seed in wpantund benchmark.
-    print('[run_fuzzer] Running target with afl-fuzz')
+    global output_stream
     fuzzer_name='fuzzer'
     command = [
         './afl-fuzz',
@@ -102,13 +106,14 @@ def run_afl_fuzz(input_corpus,
         '2147483647'
     ]
     output_stream = subprocess.DEVNULL if hide_output else None
-    for i in range(1,5):
-        command[2]=fuzzer_name+str(i)
-        print('[run_fuzzer] Running command: ' + ' '.join(command))
-        subprocess.Popen(command, stdout=output_stream, stderr=output_stream)
-    command[2]=fuzzer_name+str(0)
-    print('[run_fuzzer] Running command: ' + ' '.join(command))
-    subprocess.call(command, stdout=output_stream, stderr=output_stream)
+    command_list=[]
+    for i in range(0,5):
+        temp = list(command)
+        temp[2]=fuzzer_name+str(i)
+        command_list.append(temp)
+    #print(command_list)
+    with Pool(5) as p:
+        p.map(fuzz_func,command_list)
 
 
 def fuzz(input_corpus, output_corpus, target_binary):

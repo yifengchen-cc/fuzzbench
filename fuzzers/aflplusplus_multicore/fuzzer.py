@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 
+from multiprocessing import Pool
 from fuzzers.afl import fuzzer as afl_fuzzer
 from fuzzers import utils
 
@@ -92,9 +93,13 @@ def build():
 
     shutil.copy('/afl/afl-fuzz', os.environ['OUT'])
 
+def fuzz_func(command):
+    global output_stream
+    print('[run_fuzzer] Running command: ' + ' '.join(command))
+    subprocess.call(command, stdout=output_stream, stderr=output_stream)
 
 def fuzz(input_corpus, output_corpus, target_binary):
-
+    global output_stream
     hide_output = False    
     """Run fuzzer."""
     # Calculate CmpLog binary path from the instrumented target binary.
@@ -114,7 +119,6 @@ def fuzz(input_corpus, output_corpus, target_binary):
         flags += ['-c', cmplog_target_binary]
     if 'ADDITIONAL_ARGS' in os.environ:
         flags += os.environ['ADDITIONAL_ARGS'].split(' ')
-    print('[run_fuzzer] Running target with afl-fuzz')
     fuzzer_name = 'fuzzer'
     command = ['./afl-fuzz','-S',fuzzer_name,'-i',input_corpus,'-o',output_corpus,'-d','-m','none','-pmmopt','-s123']
     if flags:
@@ -129,11 +133,13 @@ def fuzz(input_corpus, output_corpus, target_binary):
         # performs.
         '2147483647'
     ]
-    print('[run_fuzzer] Running command: ' + ' '.join(command))
     output_stream = subprocess.DEVNULL if hide_output else None
-    for i in range(1,5):
-        command[2]=fuzzer_name+str(i)
-        subprocess.Popen(command,stdout=output_stream, stderr=output_stream)
-    command[2]=fuzzer_name+str(0)
-    subprocess.call(command, stdout=output_stream, stderr=output_stream)
+    command_list=[]
+    for i in range(0,5):
+        temp = list(command)
+        temp[2]=fuzzer_name+str(i)
+        command_list.append(temp)
+    #print(command_list)
+    with Pool(5) as p:
+        p.map(fuzz_func,command_list)
 

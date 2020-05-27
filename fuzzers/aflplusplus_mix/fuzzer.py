@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import glob
 
+from multiprocessing import Pool
 from fuzzers.afl import fuzzer as afl_fuzzer
 from fuzzers.aflplusplus import fuzzer as aflplusplus_fuzzer
 from fuzzers import utils
@@ -45,8 +46,13 @@ def build():
         shutil.copy(file, os.environ['OUT'])
 
 
+def fuzz_func(command):
+    global output_stream
+    print('[run_fuzzer] Running command: ' + ' '.join(command))
+    subprocess.call(command, stdout=output_stream, stderr=output_stream)
+
 def fuzz(input_corpus, output_corpus, target_binary):
-    
+    global output_stream
     hide_output = False
     target_binary_directory = os.path.dirname(target_binary)
     cmplog_target_binary_directory = (
@@ -93,13 +99,13 @@ def fuzz(input_corpus, output_corpus, target_binary):
         command1 = ['./afl-fuzz','-S',fuzzer_name,'-i',input_corpus,'-o',output_corpus,'-m','none','-L0','-pmmopt','-s123','--',target_binary,'2147483647']
         command2 = ['./afl-fuzz','-S',fuzzer_name,'-i',input_corpus,'-o',output_corpus,'-m','none','-L0','-pmmopt','-s123','--',target_binary,'2147483647']
         command3 = ['./afl-fuzz','-S',fuzzer_name,'-i',input_corpus,'-o',output_corpus,'-m','none','-R','-pmmopt','-s123','--',target_binary,'2147483647']
-        command_list = [command1,command2,command3,command]
-        for i in range(0,4):
+        command4 = list(command)
+        command5 = list(command)
+        command_list = [command1,command2,command3,command4,command5]
+        for i in range(0,5):
             command_list[i][2]=fuzzer_name+str(i)
-            print('[run_fuzzer] Running command: ' + ' '.join(command_list[i]))
-            subprocess.Popen(command_list[i],stdout=output_stream, stderr=output_stream)
+            #print('[run_fuzzer] Running command: ' + ' '.join(command_list[i]))
         
-        command[2]=fuzzer_name+str(4)
-        print('[run_fuzzer] Running command: ' + ' '.join(command))
-        subprocess.call(command, stdout=output_stream, stderr=output_stream)
+        with Pool(5) as p:
+            p.map(fuzz_func,command_list)
         
